@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#141a1d" />
+  <title>QUELTU · Portal Profesional HSE</title>
+  <link rel="icon" href="queltu-symbol.png" type="image/png" />
+  <link rel="stylesheet" href="hse.css?v=20260816-1" />
+</head>
+<body>
+  <div id="loginView" class="login-shell">
+    <section class="login-card">
+      <div class="brand-lockup">
+        <img src="queltu-symbol.png" alt="QUELTU" />
+        <div><span>QUELTU · SAFETY OPERATIONS</span><h1>Portal Profesional HSE</h1></div>
+      </div>
+      <p class="login-lead">Investiga casos asignados, documenta causas, controla acciones y prepara el expediente para aprobación del Supervisor HSE.</p>
+      <label for="loginPhone">Teléfono del Profesional HSE</label>
+      <input id="loginPhone" inputmode="tel" autocomplete="tel" placeholder="+55..." />
+      <label for="loginCode">Código OTP</label>
+      <input id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Ingresa el código recibido" />
+      <button id="loginBtn" class="button primary wide">Ingresar al portal</button>
+      <p id="loginMessage" class="form-message" aria-live="polite"></p>
+      <p class="login-note">Acceso exclusivo para profesionales HSE asociados a una operación minera QUELTU.</p>
+    </section>
+  </div>
+
+  <div id="portalView" class="portal hidden">
+    <header class="topbar">
+      <div class="brand-lockup compact">
+        <img src="queltu-symbol.png" alt="QUELTU" />
+        <div><span>QUELTU · PORTAL PROFESIONAL HSE</span><h1>Investigación y gestión de casos</h1></div>
+      </div>
+      <div class="session-block"><strong id="sessionName">Profesional HSE</strong><span id="sessionCenter">Operación</span></div>
+      <button id="logoutBtn" class="button dark">Cerrar sesión</button>
+    </header>
+
+    <main class="portal-layout">
+      <aside class="case-sidebar">
+        <div class="sidebar-head"><div><span class="eyebrow">BANDEJA HSE</span><h2>Mis casos</h2></div><button id="refreshCasesBtn" class="icon-button" title="Actualizar">↻</button></div>
+        <input id="caseSearch" class="search" placeholder="Buscar caso, área o persona" />
+        <select id="caseStatus" class="select">
+          <option value="">Todos los estados</option>
+          <option value="ACTIVE">Investigaciones activas</option>
+          <option value="OPEN">Abiertas</option>
+          <option value="INVESTIGATING">En investigación</option>
+          <option value="ACTION_PLAN">Plan de acción</option>
+          <option value="CLOSED">Cerradas</option>
+        </select>
+        <div id="caseCount" class="case-count">Cargando casos…</div>
+        <div id="caseList" class="case-list"></div>
+      </aside>
+
+      <section class="workspace">
+        <div id="emptyWorkspace" class="empty-workspace">
+          <div class="empty-icon">⌁</div><h2>Selecciona un caso</h2>
+          <p>Aquí podrás reconstruir el evento, evaluar el riesgo, consultar evidencias y PNR, gestionar acciones y emitir el informe HSE.</p>
+        </div>
+
+        <div id="caseWorkspace" class="hidden">
+          <section class="case-hero">
+            <div><div id="caseKicker" class="eyebrow">CASO HSE</div><h2 id="caseTitle">—</h2><p id="caseMeta">—</p></div>
+            <div class="hero-actions"><span id="investigationBadge" class="status-badge">—</span><button id="printReportBtn" class="button light">Generar informe PDF</button></div>
+          </section>
+
+          <nav class="workspace-nav" aria-label="Secciones del expediente">
+            <button class="nav-tab active" data-panel="summaryPanel">Resumen</button>
+            <button class="nav-tab" data-panel="investigationPanel">Causa raíz</button>
+            <button class="nav-tab" data-panel="riskPanel">Riesgo</button>
+            <button class="nav-tab" data-panel="controlsPanel">Controles y PNR</button>
+            <button class="nav-tab" data-panel="actionsPanel">Acciones</button>
+            <button class="nav-tab" data-panel="closurePanel">Informe y cierre</button>
+          </nav>
+
+          <section id="summaryPanel" class="workspace-panel active">
+            <div class="metric-grid">
+              <article><span>Estado operativo</span><strong id="ticketState">—</strong></article>
+              <article><span>Riesgo inicial</span><strong id="initialRisk">—</strong></article>
+              <article><span>Riesgo residual</span><strong id="residualRisk">—</strong></article>
+              <article><span>Acciones abiertas</span><strong id="openActions">—</strong></article>
+            </div>
+            <div class="two-columns">
+              <article class="card"><div class="card-head"><h3>Datos del evento</h3></div><dl id="ticketDetails" class="detail-list"></dl></article>
+              <article class="card"><div class="card-head"><h3>Línea de tiempo y evidencias</h3></div><div id="timelineList" class="timeline-list"></div></article>
+            </div>
+          </section>
+
+          <section id="investigationPanel" class="workspace-panel">
+            <div class="section-intro"><div><span class="eyebrow">EXPEDIENTE TÉCNICO</span><h3>Análisis de causa raíz</h3><p>Documenta hechos verificables, causas y aprendizajes. Los campos admiten trabajo progresivo antes de solicitar el cierre.</p></div><button id="saveInvestigationBtn" class="button primary">Guardar investigación</button></div>
+            <div class="form-grid">
+              <label>Método de investigación<select id="investigationMethod"><option value="FIVE_WHYS">5 Porqués</option><option value="ICAM">ICAM</option><option value="BOW_TIE">Bow Tie</option><option value="OTHER">Otro</option></select></label>
+              <label>Estado<select id="investigationStatus"><option value="OPEN">Abierta</option><option value="INVESTIGATING">En investigación</option><option value="ACTION_PLAN">Plan de acción</option></select></label>
+              <label class="span-2">Definición del problema<textarea id="problemStatement" rows="3" placeholder="Qué ocurrió, dónde, cuándo y cuál fue el impacto"></textarea></label>
+              <label class="span-2">Descripción técnica<textarea id="incidentDescription" rows="3"></textarea></label>
+              <label class="span-2">Secuencia del evento <small>Un hecho por línea</small><textarea id="eventSequence" rows="5" placeholder="14:20 · Equipo ingresa al sector...&#10;14:23 · Se detecta..."></textarea></label>
+              <label>Causas inmediatas <small>Una por línea</small><textarea id="immediateCauses" rows="5"></textarea></label>
+              <label>Factores contribuyentes <small>Uno por línea</small><textarea id="contributingFactors" rows="5"></textarea></label>
+              <label>Causas raíz <small>Una por línea</small><textarea id="rootCauses" rows="5"></textarea></label>
+              <label>Acciones inmediatas<textarea id="immediateActions" rows="5"></textarea></label>
+              <label class="span-2">Notas de investigación<textarea id="investigationNotes" rows="4"></textarea></label>
+              <label>Conclusión<textarea id="conclusion" rows="4"></textarea></label>
+              <label>Lecciones aprendidas<textarea id="lessonsLearned" rows="4"></textarea></label>
+              <label class="span-2">Recomendaciones<textarea id="recommendations" rows="4"></textarea></label>
+            </div>
+          </section>
+
+          <section id="riskPanel" class="workspace-panel">
+            <div class="section-intro"><div><span class="eyebrow">MATRIZ 5 × 5</span><h3>Evaluación del riesgo</h3><p>Registra la evaluación inicial y, antes del cierre, el riesgo residual.</p></div></div>
+            <div class="two-columns">
+              <article class="card form-card">
+                <h3>Nueva evaluación</h3>
+                <label>Fase<select id="riskPhase"><option value="INITIAL">Inicial</option><option value="RESIDUAL">Residual</option></select></label>
+                <label>Gravedad<select id="riskSeverity"><option value="1">1 · Leve</option><option value="2">2 · Menor</option><option value="3">3 · Seria</option><option value="4">4 · Grave</option><option value="5">5 · Crítica</option></select></label>
+                <label>Frecuencia<select id="riskFrequency"><option value="1">1 · Rara</option><option value="2">2 · Poco probable</option><option value="3">3 · Posible</option><option value="4">4 · Probable</option><option value="5">5 · Frecuente</option></select></label>
+                <label>Fundamento<textarea id="riskNotes" rows="4" placeholder="Criterios, supuestos y evidencia utilizada"></textarea></label>
+                <div id="riskPreview" class="risk-preview">Puntaje: 1</div>
+                <button id="saveRiskBtn" class="button primary wide">Registrar evaluación</button>
+              </article>
+              <article class="card"><div class="card-head"><h3>Historial de evaluaciones</h3></div><div id="riskHistory" class="stack-list"></div></article>
+            </div>
+          </section>
+
+          <section id="controlsPanel" class="workspace-panel">
+            <div class="section-intro"><div><span class="eyebrow">BARRERAS OPERACIONALES</span><h3>Controles críticos y documentos aplicables</h3><p>Consulta lo verificado en terreno y abre los procedimientos relacionados con el área del caso.</p></div></div>
+            <div class="two-columns">
+              <article class="card"><div class="card-head"><h3>Controles críticos</h3></div><div id="controlsList" class="stack-list"></div></article>
+              <article class="card"><div class="card-head"><h3>Biblioteca PNR aplicable</h3></div><div id="pnrList" class="stack-list"></div></article>
+            </div>
+          </section>
+
+          <section id="actionsPanel" class="workspace-panel">
+            <div class="section-intro"><div><span class="eyebrow">PLAN DE TRATAMIENTO</span><h3>Acciones correctivas y preventivas</h3><p>Asigna responsables, compromisos y estados de cumplimiento.</p></div></div>
+            <div class="two-columns">
+              <article class="card form-card"><h3>Nueva acción</h3>
+                <label>Título<input id="actionTitle" placeholder="Eliminar condición subestándar" /></label>
+                <label>Tipo<select id="actionType"><option value="CORRECTIVE">Correctiva</option><option value="PREVENTIVE">Preventiva</option></select></label>
+                <label>Prioridad<select id="actionPriority"><option value="LOW">Baja</option><option value="MEDIUM">Media</option><option value="HIGH">Alta</option><option value="CRITICAL">Crítica</option></select></label>
+                <label>Responsable<input id="actionOwner" placeholder="Nombre, cargo o área" /></label>
+                <label>Fecha compromiso<input id="actionDueDate" type="date" /></label>
+                <label>Descripción<textarea id="actionDescription" rows="4"></textarea></label>
+                <button id="createActionBtn" class="button primary wide">Crear acción</button>
+              </article>
+              <article class="card"><div class="card-head"><h3>Plan de acción vigente</h3></div><div id="actionsList" class="stack-list"></div></article>
+            </div>
+          </section>
+
+          <section id="closurePanel" class="workspace-panel">
+            <div class="section-intro"><div><span class="eyebrow">CONTROL DE CALIDAD</span><h3>Informe y solicitud de cierre</h3><p>El Profesional HSE prepara el expediente. Sólo el Supervisor HSE puede aprobar el cierre definitivo.</p></div><button id="printReportBtnSecondary" class="button light">Vista imprimible</button></div>
+            <div class="two-columns">
+              <article class="card"><div class="card-head"><h3>Completitud del expediente</h3></div><div id="completionChecklist" class="check-list"></div></article>
+              <article class="card form-card"><h3>Solicitar aprobación</h3><div id="closureStatus" class="closure-status"></div><label>Resumen ejecutivo de cierre<textarea id="closureSummary" rows="7" placeholder="Hallazgos, causas, controles, acciones y justificación del riesgo residual"></textarea></label><button id="requestClosureBtn" class="button primary wide">Enviar al Supervisor HSE</button></article>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden" aria-live="polite"></div>
+  <script src="hse.js?v=20260816-1"></script>
+</body>
+</html>
