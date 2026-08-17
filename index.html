@@ -4,25 +4,25 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#141a1d" />
-  <title>QUELTU · Portal Profesional HSE</title>
+  <title>QUELTU · Portal HSE</title>
   <link rel="icon" href="queltu-symbol.png" type="image/png" />
-  <link rel="stylesheet" href="hse.css?v=20260816-1" />
+  <link rel="stylesheet" href="hse.css?v=20260816-2" />
 </head>
 <body>
   <div id="loginView" class="login-shell">
     <section class="login-card">
       <div class="brand-lockup">
         <img src="queltu-symbol.png" alt="QUELTU" />
-        <div><span>QUELTU · SAFETY OPERATIONS</span><h1>Portal Profesional HSE</h1></div>
+        <div><span>QUELTU · SAFETY OPERATIONS</span><h1 id="loginTitle">Portal Profesional HSE</h1></div>
       </div>
-      <p class="login-lead">Investiga casos asignados, documenta causas, controla acciones y prepara el expediente para aprobación del Supervisor HSE.</p>
-      <label for="loginPhone">Teléfono del Profesional HSE</label>
+      <p id="loginLead" class="login-lead">Investiga casos asignados, documenta causas, controla acciones y prepara el expediente para aprobación del Supervisor HSE.</p>
+      <label id="loginPhoneLabel" for="loginPhone">Teléfono del Profesional HSE</label>
       <input id="loginPhone" inputmode="tel" autocomplete="tel" placeholder="+55..." />
       <label for="loginCode">Código OTP</label>
       <input id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Ingresa el código recibido" />
       <button id="loginBtn" class="button primary wide">Ingresar al portal</button>
       <p id="loginMessage" class="form-message" aria-live="polite"></p>
-      <p class="login-note">Acceso exclusivo para profesionales HSE asociados a una operación minera QUELTU.</p>
+      <p id="loginNote" class="login-note">Acceso exclusivo para profesionales HSE asociados a una operación minera QUELTU.</p>
     </section>
   </div>
 
@@ -156,7 +156,86 @@
       </section>
     </main>
   </div>
+
+  <div id="supervisorPortalView" class="portal hidden">
+    <header class="topbar">
+      <div class="brand-lockup compact">
+        <img src="queltu-symbol.png" alt="QUELTU" />
+        <div><span>QUELTU · PORTAL SUPERVISOR HSE</span><h1>Revisión y autorización de cierres</h1></div>
+      </div>
+      <div class="session-block"><strong id="supervisorSessionName">Supervisor HSE</strong><span id="supervisorSessionCenter">Operación</span></div>
+      <button id="supervisorLogoutBtn" class="button dark">Cerrar sesión</button>
+    </header>
+
+    <main class="supervisor-shell">
+      <section class="supervisor-intro">
+        <div>
+          <span class="eyebrow">CONTROL DE CALIDAD HSE</span>
+          <h2>Solicitudes de cierre</h2>
+          <p>Revisa el expediente preparado por el Profesional HSE. Aprobar cierra el caso; devolverlo reabre la investigación con tus observaciones.</p>
+        </div>
+        <div class="supervisor-toolbar">
+          <label for="supervisorStatus">Estado</label>
+          <select id="supervisorStatus">
+            <option value="REQUESTED">Pendientes de decisión</option>
+            <option value="ALL">Todas las solicitudes</option>
+            <option value="APPROVED">Aprobadas</option>
+            <option value="REJECTED">Devueltas</option>
+          </select>
+          <button id="refreshSupervisorBtn" class="button light">Actualizar</button>
+        </div>
+      </section>
+
+      <div class="supervisor-layout">
+        <aside class="review-queue">
+          <div class="sidebar-head"><div><span class="eyebrow">BANDEJA DE REVISIÓN</span><h2 id="supervisorCount">Cargando…</h2></div></div>
+          <div id="supervisorRequestList" class="case-list"></div>
+        </aside>
+
+        <section class="review-workspace">
+          <div id="supervisorEmpty" class="empty-workspace">
+            <div class="empty-icon">✓</div><h2>Selecciona una solicitud</h2>
+            <p>Podrás revisar el análisis de causa raíz, riesgo residual, recomendaciones y justificación antes de decidir el cierre.</p>
+          </div>
+
+          <div id="supervisorReview" class="hidden">
+            <section class="case-hero">
+              <div><div id="supervisorCaseKicker" class="eyebrow">SOLICITUD DE CIERRE</div><h2 id="supervisorCaseTitle">—</h2><p id="supervisorCaseMeta">—</p></div>
+              <span id="supervisorRequestBadge" class="status-badge">—</span>
+            </section>
+
+            <div class="review-grid">
+              <article class="card">
+                <div class="card-head"><h3>Expediente presentado</h3></div>
+                <dl id="supervisorDetails" class="detail-list"></dl>
+              </article>
+              <article class="card">
+                <div class="card-head"><h3>Análisis y controles</h3></div>
+                <div class="review-section"><strong>Causas raíz</strong><div id="supervisorRootCauses" class="review-copy">—</div></div>
+                <div class="review-section"><strong>Acciones inmediatas</strong><div id="supervisorImmediateActions" class="review-copy">—</div></div>
+                <div class="review-section"><strong>Recomendaciones</strong><div id="supervisorRecommendations" class="review-copy">—</div></div>
+              </article>
+            </div>
+
+            <article class="card decision-card">
+              <div class="card-head"><h3>Decisión del Supervisor HSE</h3></div>
+              <div id="supervisorDecisionReadOnly" class="closure-status hidden"></div>
+              <div id="supervisorDecisionForm">
+                <label for="supervisorDecisionNotes">Observaciones de revisión</label>
+                <textarea id="supervisorDecisionNotes" rows="5" placeholder="Registra el fundamento de la aprobación o indica qué debe corregir el Profesional HSE"></textarea>
+                <p class="decision-help">Las observaciones son obligatorias al devolver un expediente y quedan registradas en la trazabilidad del caso.</p>
+                <div class="decision-actions">
+                  <button id="rejectClosureBtn" class="button light danger-outline">Devolver para corrección</button>
+                  <button id="approveClosureBtn" class="button approve">Aprobar y cerrar caso</button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
   <div id="toast" class="toast hidden" aria-live="polite"></div>
-  <script src="hse.js?v=20260816-1"></script>
+  <script src="hse.js?v=20260816-2"></script>
 </body>
 </html>

@@ -1,17 +1,23 @@
 const API_BASE = window.SOS_CONFIG?.API_BASE || "https://api.queltu.com";
-const TOKEN_KEY = "queltu_hse_professional_token";
-const USER_KEY = "queltu_hse_professional_user";
+const PORTAL_MODE = new URLSearchParams(window.location.search).get("mode") === "supervisor" ? "supervisor" : "professional";
+const IS_SUPERVISOR = PORTAL_MODE === "supervisor";
+const TOKEN_KEY = IS_SUPERVISOR ? "queltu_hse_supervisor_token" : "queltu_hse_professional_token";
+const USER_KEY = IS_SUPERVISOR ? "queltu_hse_supervisor_user" : "queltu_hse_professional_user";
+const SUPERVISOR_ROLES = new Set(["OPERATOR", "ADMIN", "SUPER_ADMIN"]);
 let currentUser = null;
 let cases = [];
 let currentCaseId = null;
 let workspace = null;
 let searchTimer = null;
+let supervisorRequests = [];
+let currentSupervisorRequestId = null;
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const upper = (value) => String(value || "").toUpperCase();
 const fmtDate = (value, dateOnly = false) => { if (!value) return "—"; const d = new Date(value); if (Number.isNaN(d.getTime())) return "—"; return new Intl.DateTimeFormat("es-CL", dateOnly ? {dateStyle:"medium"} : {dateStyle:"short",timeStyle:"short"}).format(d); };
 const listText = (value) => Array.isArray(value) ? value.map(item => typeof item === "string" ? item : item?.description || item?.text || JSON.stringify(item)).filter(Boolean).join("\n") : "";
+const readableText = (value) => Array.isArray(value) ? (listText(value) || "—") : String(value || "—");
 const lines = (value) => String(value || "").split(/\n+/).map(item => item.trim()).filter(Boolean);
 const statusLabel = {OPEN:"Abierta",INVESTIGATING:"En investigación",ACTION_PLAN:"Plan de acción",CLOSED:"Cerrada",REQUESTED:"Pendiente de aprobación",APPROVED:"Aprobada",REJECTED:"Devuelta",ACTIVE:"Activo",ASSIGNED:"Asignado",EN_ROUTE:"En camino",ON_SITE:"En sitio",RESOLVED:"Resuelto",CANCELLED:"Cancelado",LOW:"Bajo",MODERATE:"Moderado",HIGH:"Alto",CRITICAL:"Crítico",INITIAL:"Inicial",RESIDUAL:"Residual",IN_PROGRESS:"En progreso",DONE:"Completada",CANCELLED_ACTION:"Cancelada"};
 const label = (value) => statusLabel[upper(value)] || String(value || "—").replaceAll("_"," ");
@@ -31,23 +37,128 @@ function setBusy(button,busy,text){ if(!button)return; if(busy){button.dataset.l
 
 async function login(){
   const phone=$("loginPhone").value.trim(), code=$("loginCode").value.trim(), button=$("loginBtn");
-  if(!phone) return setLoginMessage("Ingresa el teléfono del Profesional HSE.");
+  if(!phone) return setLoginMessage(`Ingresa el teléfono del ${IS_SUPERVISOR ? "Supervisor" : "Profesional"} HSE.`);
   setBusy(button,true,"Validando…"); setLoginMessage("");
   try{
-    const result=await api("/resolver/auth/login",{method:"POST",body:JSON.stringify({phone,code:code||undefined,channel:"demo"})});
+    const result=await api(IS_SUPERVISOR ? "/auth/panel-login" : "/resolver/auth/login",{method:"POST",body:JSON.stringify(IS_SUPERVISOR ? {phone,code:code||undefined,panel_type:"CONTROL_CENTER",channel:"demo"} : {phone,code:code||undefined,channel:"demo"})});
     if(result.requires_verification){ setLoginMessage(result.demo_code?`Código demo: ${result.demo_code}`:`Código enviado por ${result.otp_channel||"SMS"}.`,false); $("loginCode").focus(); return; }
-    if(upper(result.user?.role)!=="RESOLVER") throw new Error("Esta cuenta no corresponde a un Profesional HSE.");
+    if(IS_SUPERVISOR ? !SUPERVISOR_ROLES.has(upper(result.user?.role)) : upper(result.user?.role)!=="RESOLVER") throw new Error(`Esta cuenta no tiene permiso de ${IS_SUPERVISOR ? "Supervisor" : "Profesional"} HSE.`);
     sessionStorage.setItem(TOKEN_KEY,result.token); sessionStorage.setItem(USER_KEY,JSON.stringify(result.user));
-    currentUser=result.user; showPortal(); await loadCases();
+    currentUser=result.user; showPortal(); if(IS_SUPERVISOR) await loadSupervisorRequests(); else await loadCases();
   }catch(error){ setLoginMessage(error.message); } finally{ setBusy(button,false); }
 }
 async function restoreSession(){
   if(!token()) return;
-  try{ const result=await api("/auth/session"); if(upper(result.user?.role)!=="RESOLVER") throw new Error("Rol no autorizado"); currentUser=result.user; showPortal(); await loadCases(); }
+  try{ const result=await api("/auth/session"); if(IS_SUPERVISOR ? !SUPERVISOR_ROLES.has(upper(result.user?.role)) : upper(result.user?.role)!=="RESOLVER") throw new Error("Rol no autorizado"); currentUser=result.user; showPortal(); if(IS_SUPERVISOR) await loadSupervisorRequests(); else await loadCases(); }
   catch{ logout(false); }
 }
-function showPortal(){ $("loginView").classList.add("hidden"); $("portalView").classList.remove("hidden"); $("sessionName").textContent=currentUser?.full_name||"Profesional HSE"; $("sessionCenter").textContent=currentUser?.control_center_name||currentUser?.control_center_code||"Operación minera"; }
+function showPortal(){
+  $("loginView").classList.add("hidden");
+  if(IS_SUPERVISOR){
+    $("supervisorPortalView").classList.remove("hidden");
+    $("portalView").classList.add("hidden");
+    $("supervisorSessionName").textContent=currentUser?.full_name||"Supervisor HSE";
+    $("supervisorSessionCenter").textContent=currentUser?.control_center_name||currentUser?.control_center_code||"Operación minera";
+  }else{
+    $("portalView").classList.remove("hidden");
+    $("supervisorPortalView").classList.add("hidden");
+    $("sessionName").textContent=currentUser?.full_name||"Profesional HSE";
+    $("sessionCenter").textContent=currentUser?.control_center_name||currentUser?.control_center_code||"Operación minera";
+  }
+}
 function logout(reload=true){ sessionStorage.removeItem(TOKEN_KEY);sessionStorage.removeItem(USER_KEY);localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY); if(reload)location.reload(); }
+
+function configurePortalMode(){
+  if(!IS_SUPERVISOR) return;
+  document.title="QUELTU · Portal Supervisor HSE";
+  $("loginTitle").textContent="Portal Supervisor HSE";
+  $("loginLead").textContent="Revisa investigaciones terminadas, registra observaciones y autoriza o devuelve solicitudes de cierre de tu operación.";
+  $("loginPhoneLabel").textContent="Teléfono del Supervisor HSE";
+  $("loginNote").textContent="Acceso para supervisores, administradores y responsables autorizados del Centro de Control.";
+  $("loginBtn").textContent="Ingresar como Supervisor";
+}
+
+async function loadSupervisorRequests(){
+  const list=$("supervisorRequestList");
+  list.innerHTML='<div class="stack-item">Cargando solicitudes…</div>';
+  try{
+    const status=encodeURIComponent($("supervisorStatus").value||"REQUESTED");
+    const result=await api(`/hse/supervisor/closure-requests?status=${status}`);
+    supervisorRequests=result.closure_requests||[];
+    $("supervisorCount").textContent=`${supervisorRequests.length} solicitud${supervisorRequests.length===1?"":"es"}`;
+    renderSupervisorRequests();
+    if(currentSupervisorRequestId){
+      const selected=supervisorRequests.find(item=>item.id===currentSupervisorRequestId);
+      if(selected) renderSupervisorReview(selected); else clearSupervisorReview();
+    }
+  }catch(error){
+    list.innerHTML=`<div class="stack-item"><strong>No fue posible cargar solicitudes</strong><p>${esc(error.message)}</p></div>`;
+    if(error.status===401) logout();
+  }
+}
+
+function renderSupervisorRequests(){
+  $("supervisorRequestList").innerHTML=supervisorRequests.length?supervisorRequests.map(item=>{
+    const active=item.id===currentSupervisorRequestId?" active":"";
+    const state=` review-${upper(item.status).toLowerCase()}`;
+    return `<button class="case-item${active}${state}" data-supervisor-request-id="${esc(item.id)}"><strong>${esc(item.ticket_title||item.alert_type||"Caso HSE")}</strong><div class="case-row"><span>#${esc(String(item.ticket_id||"").slice(0,8).toUpperCase())} · ${esc(item.event_sector_name||"Sin área")}</span></div><div class="case-row"><span>${esc(item.resolver_name||item.requested_by_name||"Profesional HSE")}</span><span class="mini-status">${esc(label(item.status))}</span></div></button>`;
+  }).join(""):'<div class="stack-item"><strong>Sin solicitudes</strong><p>No hay expedientes para el estado seleccionado.</p></div>';
+  document.querySelectorAll("[data-supervisor-request-id]").forEach(button=>button.addEventListener("click",()=>selectSupervisorRequest(button.dataset.supervisorRequestId)));
+}
+
+function selectSupervisorRequest(id){
+  currentSupervisorRequestId=id;
+  renderSupervisorRequests();
+  const item=supervisorRequests.find(request=>request.id===id);
+  if(item) renderSupervisorReview(item);
+}
+
+function clearSupervisorReview(){
+  currentSupervisorRequestId=null;
+  $("supervisorEmpty").classList.remove("hidden");
+  $("supervisorReview").classList.add("hidden");
+}
+
+function renderSupervisorReview(item){
+  $("supervisorEmpty").classList.add("hidden");
+  $("supervisorReview").classList.remove("hidden");
+  $("supervisorCaseKicker").textContent=`SOLICITUD · #${String(item.ticket_id||"").slice(0,8).toUpperCase()}`;
+  $("supervisorCaseTitle").textContent=item.ticket_title||item.alert_type||"Caso HSE";
+  $("supervisorCaseMeta").textContent=`${item.event_sector_name||"Área no informada"} · solicitada ${fmtDate(item.requested_at)}`;
+  $("supervisorRequestBadge").textContent=label(item.status);
+  $("supervisorDetails").innerHTML=[
+    ["Profesional HSE",item.resolver_name||item.requested_by_name],
+    ["Estado del ticket",label(item.ticket_state)],
+    ["Investigación",label(item.investigation_status)],
+    ["Riesgo residual",item.residual_risk_score?`${item.residual_risk_score}/25 · ${label(item.residual_risk_level)}`:"No evaluado"],
+    ["Resumen de cierre",item.request_summary],
+    ["Notas de investigación",item.investigation_notes]
+  ].map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value||"—")}</dd>`).join("");
+  $("supervisorRootCauses").textContent=readableText(item.root_causes);
+  $("supervisorImmediateActions").textContent=readableText(item.immediate_actions);
+  $("supervisorRecommendations").textContent=readableText(item.recommendations);
+  const pending=upper(item.status)==="REQUESTED";
+  $("supervisorDecisionForm").classList.toggle("hidden",!pending);
+  $("supervisorDecisionReadOnly").classList.toggle("hidden",pending);
+  $("supervisorDecisionReadOnly").textContent=pending?"":`${label(item.status)} ${item.decided_at?`el ${fmtDate(item.decided_at)}`:""}${item.decision_notes?` · ${item.decision_notes}`:""}`;
+  $("supervisorDecisionNotes").value="";
+}
+
+async function decideClosure(decision){
+  const item=supervisorRequests.find(request=>request.id===currentSupervisorRequestId);
+  if(!item) return toast("Selecciona una solicitud de cierre",true);
+  const notes=$("supervisorDecisionNotes").value.trim();
+  if(decision==="REJECTED"&&!notes) return toast("Indica qué debe corregir el Profesional HSE",true);
+  const action=decision==="APPROVED"?"aprobar y cerrar definitivamente este caso":"devolver el expediente para corrección";
+  if(!window.confirm(`¿Confirmas que deseas ${action}?`)) return;
+  const button=decision==="APPROVED"?$("approveClosureBtn"):$("rejectClosureBtn");
+  setBusy(button,true,decision==="APPROVED"?"Aprobando…":"Devolviendo…");
+  try{
+    await api(`/hse/supervisor/closure-requests/${item.id}/decision`,{method:"POST",body:JSON.stringify({decision,decision_notes:notes})});
+    toast(decision==="APPROVED"?"Caso aprobado y cerrado":"Expediente devuelto al Profesional HSE");
+    await loadSupervisorRequests();
+  }catch(error){toast(error.message,true);}finally{setBusy(button,false);}
+}
 
 async function loadCases(){
   const list=$("caseList"); list.innerHTML='<div class="stack-item">Cargando expedientes…</div>';
@@ -131,4 +242,6 @@ function printReport(){if(!workspace)return;document.title=`Informe HSE ${String
 
 document.querySelectorAll(".nav-tab").forEach(button=>button.addEventListener("click",()=>{document.querySelectorAll(".nav-tab").forEach(x=>x.classList.toggle("active",x===button));document.querySelectorAll(".workspace-panel").forEach(panel=>panel.classList.toggle("active",panel.id===button.dataset.panel));}));
 $("loginBtn").addEventListener("click",login);$("loginCode").addEventListener("keydown",event=>{if(event.key==="Enter")login();});$("logoutBtn").addEventListener("click",()=>logout());$("refreshCasesBtn").addEventListener("click",loadCases);$("caseStatus").addEventListener("change",loadCases);$("caseSearch").addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(loadCases,350);});$("saveInvestigationBtn").addEventListener("click",saveInvestigation);$("riskSeverity").addEventListener("change",updateRiskPreview);$("riskFrequency").addEventListener("change",updateRiskPreview);$("saveRiskBtn").addEventListener("click",saveRisk);$("createActionBtn").addEventListener("click",createAction);$("requestClosureBtn").addEventListener("click",requestClosure);$("printReportBtn").addEventListener("click",printReport);$("printReportBtnSecondary").addEventListener("click",printReport);
+$("supervisorLogoutBtn").addEventListener("click",()=>logout());$("refreshSupervisorBtn").addEventListener("click",loadSupervisorRequests);$("supervisorStatus").addEventListener("change",()=>{currentSupervisorRequestId=null;clearSupervisorReview();loadSupervisorRequests();});$("approveClosureBtn").addEventListener("click",()=>decideClosure("APPROVED"));$("rejectClosureBtn").addEventListener("click",()=>decideClosure("REJECTED"));
+configurePortalMode();
 restoreSession();
